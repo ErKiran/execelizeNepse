@@ -25,6 +25,8 @@ type BizmanduAPI struct {
 	client *utils.Client
 }
 
+// This should be undoned
+
 func NewBizmandu() (*BizmanduAPI, error) {
 	client := utils.NewClient(nil, os.Getenv("BIZMANDU"), "")
 
