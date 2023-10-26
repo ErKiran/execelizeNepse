@@ -2,7 +2,10 @@ package onlinekhabar
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 type StockList struct {
@@ -24,14 +27,16 @@ type TickerInfo struct {
 	Sector     string `json:"sector"`
 }
 
-func (ok *OkStockAPI) GetStocks() ([]TickerInfo, error) {
+func (ok *OkStockAPI) GetStocks(ctx *gin.Context) ([]TickerInfo, error) {
 	req, err := ok.client.NewRequest(http.MethodGet, ListTicker, nil)
 	if err != nil {
+		fmt.Println("error:", err)
 		return nil, err
 	}
 
-	res := &StockList{}
+	var res StockList
 	if _, err := ok.client.Do(context.Background(), req, res); err != nil {
+		fmt.Println("error:", err)
 		return nil, err
 	}
 

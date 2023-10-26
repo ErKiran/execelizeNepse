@@ -4,14 +4,18 @@ import (
 	"os"
 
 	"nepse-backend/utils"
+
+	"github.com/gin-gonic/gin"
 )
 
 const (
-	ListTicker = "search-list/tickers"
+	ListTicker                = "search-list/tickers"
+	TickerFundamentalOverview = "ticker-page/ticker-quick-view"
 )
 
 type OkStock interface {
-	GetStocks() ([]TickerInfo, error)
+	GetStocks(ctx *gin.Context) ([]TickerInfo, error)
+	GetFundamentalQuickView(ctx *gin.Context, ticker string) (*FundamentalOverview, error)
 }
 
 type OkStockAPI struct {

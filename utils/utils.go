@@ -3,35 +3,16 @@ package utils
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
-	"os"
-
-	"github.com/wasmerio/wasmer-go/wasmer"
 )
-
-type ProveResponse struct {
-	Servertime   int64  `json:"serverTime"`
-	Salt         string `json:"salt"`
-	Accesstoken  string `json:"accessToken"`
-	Tokentype    string `json:"tokenType"`
-	Refreshtoken string `json:"refreshToken"`
-	Salt1        int    `json:"salt1"`
-	Salt2        int    `json:"salt2"`
-	Salt3        int    `json:"salt3"`
-	Salt4        int    `json:"salt4"`
-	Salt5        int    `json:"salt5"`
-}
 
 const (
 	defaultUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
-	localCertFile    = "test.crt"
 )
 
 type Client struct {
@@ -42,34 +23,11 @@ type Client struct {
 }
 
 func NewClient(httpClient *http.Client, apiURL string, auth string) *Client {
-	// Get the SystemCertPool, continue with an empty pool on error
-	rootCAs, _ := x509.SystemCertPool()
-	if rootCAs == nil {
-		rootCAs = x509.NewCertPool()
-	}
-
-	// Read in the cert file
-	certs, err := os.ReadFile(localCertFile)
+	baseURL, err := url.Parse(apiURL)
 	if err != nil {
-		log.Fatalf("Failed to append %q to RootCAs: %v", localCertFile, err)
+		fmt.Println("unable to parse URL", err)
+		return nil
 	}
-
-	// Append our cert to the system pool
-	if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
-		log.Println("No certs appended, using system certs only")
-	}
-
-	config := &tls.Config{
-		RootCAs: rootCAs,
-	}
-	tr := &http.Transport{TLSClientConfig: config}
-	if httpClient == nil {
-		httpClient = &http.Client{
-			Transport: tr,
-		}
-	}
-
-	baseURL, _ := url.Parse(apiURL)
 
 	c := &Client{
 		httpClient: httpClient,
@@ -84,8 +42,13 @@ func NewClient(httpClient *http.Client, apiURL string, auth string) *Client {
 // decoded and stored in the value pointed to by v.
 func (c *Client) Do(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {
 	req = req.WithContext(ctx)
+	if req == nil {
+		fmt.Println("request can't be nil")
+		return nil, errors.New("request can't be nil")
+	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		fmt.Println("error:", err)
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
@@ -108,23 +71,25 @@ func (c *Client) Do(ctx context.Context, req *http.Request, v interface{}) (*htt
 
 // NewRequest creates an API request. The given URL is relative to the Client's
 // BaseURL.
-func (c *Client) NewRequest(method, url string, body interface{}, opts ...interface{}) (*http.Request, error) {
-	u, err := c.BaseURL.Parse(url)
+func (c *Client) NewRequest(method, urlStr string, body interface{}, opts ...interface{}) (*http.Request, error) {
+	u, err := c.BaseURL.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
-	var buf io.ReadWriter
+
+	var buf io.Reader
 	if body != nil {
-		buf = new(bytes.Buffer)
-		enc := json.NewEncoder(buf)
-		enc.SetEscapeHTML(false)
-		if err := enc.Encode(body); err != nil {
+		// Serialize the body to JSON only if it's not nil and can be serialized.
+		jsonBody, err := json.Marshal(body)
+		if err != nil {
 			return nil, err
 		}
+		buf = bytes.NewBuffer(jsonBody)
 	}
 
 	req, err := http.NewRequest(method, u.String(), buf)
 	if err != nil {
+		fmt.Println("error in NewRequest http", err)
 		return nil, err
 	}
 
@@ -135,12 +100,6 @@ func (c *Client) NewRequest(method, url string, body interface{}, opts ...interf
 	req.Header.Set("User-Agent", c.UserAgent)
 	req.Header.Set("Accept", "application/json")
 
-	if c.Headers != "" {
-		req.Header.Set("Authorization", c.Headers)
-	}
-	if len(opts) != 0 {
-		req.Header.Set("Authorization", opts[0].(string))
-	}
 	return req, nil
 }
 
@@ -151,33 +110,4 @@ func checkResponse(r *http.Response) error {
 	}
 
 	return fmt.Errorf("request failed with status %d", status)
-}
-
-func (c *Client) Wasm(prove ProveResponse) (*ProveResponse, error) {
-	wasmBytes, _ := os.ReadFile("css.wasm")
-
-	engine := wasmer.NewEngine()
-	store := wasmer.NewStore(engine)
-
-	module, _ := wasmer.NewModule(store, wasmBytes)
-
-	importObject := wasmer.NewImportObject()
-	instance, _ := wasmer.NewInstance(module, importObject)
-	cdx, _ := instance.Exports.GetFunction("cdx")
-	rdx, _ := instance.Exports.GetFunction("rdx")
-
-	n, _ := cdx(prove.Salt1, prove.Salt2, prove.Salt3, prove.Salt4, prove.Salt5)
-	l, _ := rdx(prove.Salt1, prove.Salt2, prove.Salt4, prove.Salt3, prove.Salt5)
-	i, _ := cdx(prove.Salt2, prove.Salt1, prove.Salt3, prove.Salt5, prove.Salt4)
-	r, _ := rdx(prove.Salt2, prove.Salt1, prove.Salt3, prove.Salt4, prove.Salt5)
-
-	if n.(int32)+1 < l.(int32) {
-		prove.Accesstoken = prove.Accesstoken[:n.(int32)] + prove.Accesstoken[n.(int32)+1:l.(int32)] + prove.Accesstoken[l.(int32)+1:]
-	}
-	if i.(int32)+1 < r.(int32) {
-		prove.Refreshtoken = prove.Refreshtoken[:i.(int32)] + prove.Refreshtoken[i.(int32)+1:r.(int32)] + prove.Refreshtoken[r.(int32)+1:]
-	}
-
-	prove.Accesstoken = fmt.Sprintf("Salter %v", prove.Accesstoken)
-	return &prove, nil
 }

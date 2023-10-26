@@ -1,2 +1,0 @@
-#!/usr/bin/env bash
-swag init -g main.go --output docs
