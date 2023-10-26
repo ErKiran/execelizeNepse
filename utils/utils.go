@@ -8,10 +8,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 
 	"github.com/wasmerio/wasmer-go/wasmer"
 )
@@ -42,7 +42,6 @@ type Client struct {
 }
 
 func NewClient(httpClient *http.Client, apiURL string, auth string) *Client {
-
 	// Get the SystemCertPool, continue with an empty pool on error
 	rootCAs, _ := x509.SystemCertPool()
 	if rootCAs == nil {
@@ -50,7 +49,7 @@ func NewClient(httpClient *http.Client, apiURL string, auth string) *Client {
 	}
 
 	// Read in the cert file
-	certs, err := ioutil.ReadFile(localCertFile)
+	certs, err := os.ReadFile(localCertFile)
 	if err != nil {
 		log.Fatalf("Failed to append %q to RootCAs: %v", localCertFile, err)
 	}
@@ -86,7 +85,6 @@ func NewClient(httpClient *http.Client, apiURL string, auth string) *Client {
 func (c *Client) Do(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {
 	req = req.WithContext(ctx)
 	resp, err := c.httpClient.Do(req)
-
 	if err != nil {
 		select {
 		case <-ctx.Done():
@@ -111,7 +109,6 @@ func (c *Client) Do(ctx context.Context, req *http.Request, v interface{}) (*htt
 // NewRequest creates an API request. The given URL is relative to the Client's
 // BaseURL.
 func (c *Client) NewRequest(method, url string, body interface{}, opts ...interface{}) (*http.Request, error) {
-
 	u, err := c.BaseURL.Parse(url)
 	if err != nil {
 		return nil, err
@@ -142,7 +139,6 @@ func (c *Client) NewRequest(method, url string, body interface{}, opts ...interf
 		req.Header.Set("Authorization", c.Headers)
 	}
 	if len(opts) != 0 {
-		fmt.Println("called this......")
 		req.Header.Set("Authorization", opts[0].(string))
 	}
 	return req, nil
@@ -158,7 +154,7 @@ func checkResponse(r *http.Response) error {
 }
 
 func (c *Client) Wasm(prove ProveResponse) (*ProveResponse, error) {
-	wasmBytes, _ := ioutil.ReadFile("css.wasm")
+	wasmBytes, _ := os.ReadFile("css.wasm")
 
 	engine := wasmer.NewEngine()
 	store := wasmer.NewStore(engine)

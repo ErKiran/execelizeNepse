@@ -2,14 +2,15 @@ package controllers
 
 import (
 	"fmt"
-	responses "nepse-backend/api/response"
-	"nepse-backend/nepse"
-	"nepse-backend/nepse/neweb"
-	"nepse-backend/utils"
 	"net/http"
 	"os"
 	"sort"
 	"time"
+
+	responses "nepse-backend/api/response"
+	"nepse-backend/nepse"
+	"nepse-backend/nepse/neweb"
+	"nepse-backend/utils"
 
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/components"
@@ -43,7 +44,7 @@ type TransactionData struct {
 // @Tags floorsheet
 // @Accept  json
 // @Produce  json
-// @Success 200 {object}
+// @Success 200 {string} success
 // @Router /api/v1/floorsheet/analysis [get]
 func (s *Server) FloorsheetAnalysis(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
@@ -53,7 +54,6 @@ func (s *Server) FloorsheetAnalysis(w http.ResponseWriter, r *http.Request) {
 	randomId := params.Get("id")
 
 	days, err := utils.GetDateRange(w, start, end)
-
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
@@ -69,7 +69,6 @@ func (s *Server) FloorsheetAnalysis(w http.ResponseWriter, r *http.Request) {
 	}
 
 	nepseSectors, err := nepseBeta.GetStocks()
-
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -79,10 +78,9 @@ func (s *Server) FloorsheetAnalysis(w http.ResponseWriter, r *http.Request) {
 	for _, day := range days {
 		for _, v := range nepseSectors {
 			time.Sleep(100 * time.Millisecond)
-			var count = 0
+			count := 0
 			for {
 				floorsheet, err := nepseBeta.GetFloorsheet(v.Id, day, randomId, count, 2000, true)
-
 				if err != nil {
 					responses.ERROR(w, 400, err)
 					return
@@ -154,9 +152,8 @@ func (s *Server) FloorsheetAnalysis(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var pumpedStockDataBroker = make(map[string][]TransactionData)
+	pumpedStockDataBroker := make(map[string][]TransactionData)
 	for k, v := range finalDataBuy {
-
 		for _, stockTransaction := range v {
 			if stockTransaction.PercentageShare > 25 && stockTransaction.BrokerPercentageShare > 5 {
 				pumpedStockDataBroker[k] = append(pumpedStockDataBroker[k], stockTransaction)
@@ -164,7 +161,7 @@ func (s *Server) FloorsheetAnalysis(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var dumpedStockDataBroker = make(map[string][]TransactionData)
+	dumpedStockDataBroker := make(map[string][]TransactionData)
 
 	for k, v := range finalDataSell {
 		for _, stockTransaction := range v {
@@ -211,7 +208,7 @@ func (s *Server) FloorsheetAnalysis(w http.ResponseWriter, r *http.Request) {
 
 	var buyCharts []*charts.Bar
 
-	var topBrokerSellData = make(map[string][]TransactionData)
+	topBrokerSellData := make(map[string][]TransactionData)
 	for k, v := range finalDataSell {
 		for _, bs := range brokerSellSorted[0:10] {
 			if k == bs.Key {
@@ -221,7 +218,7 @@ func (s *Server) FloorsheetAnalysis(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var topBrokerBuyData = make(map[string][]TransactionData)
+	topBrokerBuyData := make(map[string][]TransactionData)
 	for k, v := range finalDataBuy {
 		for _, bs := range brokerBuySorted[0:10] {
 			if k == bs.Key {
@@ -246,7 +243,6 @@ func (s *Server) FloorsheetAnalysis(w http.ResponseWriter, r *http.Request) {
 	}
 
 	CreateHTMLAgg(buyCharts, "analysis")
-
 }
 
 // GetFloorsheetAggregated godoc
@@ -258,7 +254,7 @@ func (s *Server) FloorsheetAnalysis(w http.ResponseWriter, r *http.Request) {
 // @Tags floorsheet
 // @Accept  json
 // @Produce  json
-// @Success 200 {object}
+// @Success 200 {object} map[string][]TransactionData
 // @Router /api/v1/floorsheet/bulk [get]
 func (s *Server) GetFloorSheetAggregated(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
@@ -268,7 +264,6 @@ func (s *Server) GetFloorSheetAggregated(w http.ResponseWriter, r *http.Request)
 	randomId := params.Get("id")
 
 	days, err := utils.GetDateRange(w, start, end)
-
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
@@ -292,7 +287,7 @@ func (s *Server) GetFloorSheetAggregated(w http.ResponseWriter, r *http.Request)
 	var floorsheetContents []nepse.FloorsheetContent
 	for _, day := range days {
 		for _, v := range nepseSectors {
-			var count = 0
+			count := 0
 			for {
 				floorsheet, err := nepseBeta.GetFloorsheet(v.Id, day, randomId, count, 2000, true)
 
@@ -351,7 +346,7 @@ func (s *Server) GetFloorSheetAggregated(w http.ResponseWriter, r *http.Request)
 	var buyCharts []*charts.Bar
 	folderName := "floorsheetAgg"
 	if _, err := os.Stat(folderName); os.IsNotExist(err) {
-		os.Mkdir(folderName, 0777)
+		os.Mkdir(folderName, 0o777)
 	}
 	for k, v := range finalDataBuy {
 		sort.Slice(v, func(i, j int) bool {
@@ -384,7 +379,7 @@ func (s *Server) GetFloorSheetAggregated(w http.ResponseWriter, r *http.Request)
 // @Tags floorsheet
 // @Accept  json
 // @Produce  json
-// @Success 200 {object}
+// @Success 200 {object} FloorsheetResult
 // @Router /api/v1/floorsheet [get]
 func (s *Server) GetFloorsheet(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
@@ -409,7 +404,6 @@ func (s *Server) GetFloorsheet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	days, err := utils.GetDateRange(w, start, end)
-
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
@@ -451,11 +445,10 @@ func (s *Server) GetFloorsheet(w http.ResponseWriter, r *http.Request) {
 
 	for _, day := range days {
 
-		var count = 0
+		count := 0
 		for {
 			time.Sleep(time.Duration(sleepTime) * time.Millisecond)
 			floorsheet, err := nepseBeta.GetFloorsheet(id, day, randomId, count, 2000, isBulkRequest)
-
 			if err != nil {
 				responses.ERROR(w, 400, err)
 				return
@@ -497,7 +490,7 @@ func (s *Server) GetFloorsheet(w http.ResponseWriter, r *http.Request) {
 	var allCharts []*charts.Bar
 	folderName := "for-youtube"
 	if _, err := os.Stat(folderName); os.IsNotExist(err) {
-		os.Mkdir(folderName, 0777)
+		os.Mkdir(folderName, 0o777)
 	}
 
 	allCharts = append(allCharts, BarGraphFS(result.BuyerQuantityMap, result.SellerQuantityMap, "Top Buyers"))
@@ -517,7 +510,7 @@ func BarGraphFS(aggregatedData, alterAggregateData map[string]float64, title str
 
 	topSorted := SortMap(aggregatedData, false)
 
-	var keys = make([]string, 0)
+	keys := make([]string, 0)
 
 	for _, v := range topSorted {
 		keys = append(keys, v.Key)
@@ -553,7 +546,7 @@ func BarGraphAgg(data []TransactionData, title string) *charts.Bar {
 		Title: title,
 	}))
 
-	var keys = make([]string, 0)
+	keys := make([]string, 0)
 
 	for _, v := range data {
 		keys = append(keys, v.Ticker)

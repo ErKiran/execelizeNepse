@@ -3,15 +3,16 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math"
-	responses "nepse-backend/api/response"
-	"nepse-backend/nepse/bizmandu"
-	"nepse-backend/utils"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	responses "nepse-backend/api/response"
+	"nepse-backend/nepse/bizmandu"
+	"nepse-backend/utils"
 )
 
 type WhatIfRequest struct {
@@ -23,7 +24,7 @@ type WhatIfRequest struct {
 }
 
 func (server *Server) WhatIf(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -47,7 +48,6 @@ func (server *Server) WhatIf(w http.ResponseWriter, r *http.Request) {
 	timeNow := time.Now().Unix()
 
 	biz, err := bizmandu.NewBizmandu()
-
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -58,14 +58,12 @@ func (server *Server) WhatIf(w http.ResponseWriter, r *http.Request) {
 	for _, stock := range whatIf.Stock {
 
 		dividend, err := biz.GetDividendHistory(stock)
-
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		prices, err := biz.GetPriceHistory(stock, buyTime, timeNow)
-
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -165,7 +163,6 @@ func calculateDividendYield(dividend *bizmandu.DividendHistory, year int, quanit
 				dividendYield.TotalQuantity = math.Floor(dividendYield.TotalQuantity + div.Bonus*dividendYield.TotalQuantity)
 			}
 		}
-
 	}
 	return dividendYield
 }

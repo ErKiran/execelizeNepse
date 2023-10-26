@@ -2,13 +2,14 @@ package controllers
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"sort"
+
 	responses "nepse-backend/api/response"
 	"nepse-backend/nepse/bizmandu"
 	"nepse-backend/nepse/neweb"
 	"nepse-backend/utils"
-	"net/http"
-	"os"
-	"sort"
 
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/components"
@@ -17,9 +18,11 @@ import (
 
 var (
 	options     = []string{"whole", "sector", "topHolding", "topSold", "topBought", "netBought"}
-	MutualFunds = []string{"CMF1", "CMF2", "GIMES1", "KEF", "LEMF", "LUK", "NBF2", "NEF", "NIBLPF", "NIBSF1",
+	MutualFunds = []string{
+		"CMF1", "CMF2", "GIMES1", "KEF", "LEMF", "LUK", "NBF2", "NEF", "NIBLPF", "NIBSF1",
 		"NICBF", "NICGF", "NMB50", "NMBHF1", "PSF", "SAEF", "SBCF", "SEF", "SFMF", "SIGS2", "SLCF", "NIBSF2", "NIBLSF", "NICSF", "RMF1",
-		"RBBMF", "MMF1"}
+		"RBBMF", "MMF1",
+	}
 )
 
 var test = make(map[string]string)
@@ -59,25 +62,22 @@ type MutualFundKeyMetrics struct {
 // @Tags mutualfund
 // @Accept  json
 // @Produce  json
-// @Success 200 {object}
+// @Success 200 {object} MutualFund
 // @Router /api/v1/mutualfund [get]
 func (server *Server) GetMutualFundsInfo(w http.ResponseWriter, r *http.Request) {
 	biz, err := bizmandu.NewBizmandu()
-
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	nepseBeta, err := neweb.Neweb()
-
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	mfs, err := nepseBeta.GetMutualFundStock()
-
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -143,7 +143,7 @@ func (server *Server) GetMutualFundsInfo(w http.ResponseWriter, r *http.Request)
 
 	folderName := "mutualFund"
 	if _, err := os.Stat(folderName); os.IsNotExist(err) {
-		os.Mkdir(folderName, 0777)
+		os.Mkdir(folderName, 0o777)
 	}
 
 	categories := GetMutualFundHeaders()
@@ -169,7 +169,7 @@ func (server *Server) GetMutualFundsInfo(w http.ResponseWriter, r *http.Request)
 
 		if option == "sector" {
 			pie = PieChart(mfsInfo.SectorMap, "Sector Distribution of Mutual Funds")
-			var count = 0
+			count := 0
 			for k, v := range mfsInfo.SectorMap {
 				excelVal := GetAggregatedMutualFundValues(k, v, count)
 				excelVals = append(excelVals, excelVal)
@@ -180,7 +180,7 @@ func (server *Server) GetMutualFundsInfo(w http.ResponseWriter, r *http.Request)
 		if option == "topHolding" {
 			allCharts = append(allCharts, BarGraph(mfsInfo.TopHoldingMap, "Total Number of Holdings in Mutual Fund's Portfolio", true))
 			allCharts = append(allCharts, BarGraph(mfsInfo.TopHoldingMap, "Total Number of Holdings in Mutual Fund's Portfolio (Mutual Fund Excluded)", false))
-			var count = 0
+			count := 0
 			for k, v := range mfsInfo.TopHoldingMap {
 				excelVal := GetAggregatedMutualFundValues(k, v, count)
 				excelVals = append(excelVals, excelVal)
@@ -190,7 +190,7 @@ func (server *Server) GetMutualFundsInfo(w http.ResponseWriter, r *http.Request)
 		if option == "topBought" {
 			allCharts = append(allCharts, BarGraph(mfsInfo.TopstockboughtMap, "Top Stock Bought within One Month", true))
 			allCharts = append(allCharts, BarGraph(mfsInfo.TopstockboughtMap, "Top Stock Bought within One Month (Mutual Fund Excluded)", false))
-			var count = 0
+			count := 0
 			for k, v := range mfsInfo.TopstockboughtMap {
 				excelVal := GetAggregatedMutualFundValues(k, v, count)
 				excelVals = append(excelVals, excelVal)
@@ -200,7 +200,7 @@ func (server *Server) GetMutualFundsInfo(w http.ResponseWriter, r *http.Request)
 		if option == "topSold" {
 			allCharts = append(allCharts, BarGraph(mfsInfo.TopstocksoldMap, "Top Stock Sold within One Month", true))
 			allCharts = append(allCharts, BarGraph(mfsInfo.TopstocksoldMap, "Top Stock Sold within One Month (Mutual Fund Excluded)", false))
-			var count = 0
+			count := 0
 			for k, v := range mfsInfo.TopstocksoldMap {
 				excelVal := GetAggregatedMutualFundValues(k, v, count)
 				excelVals = append(excelVals, excelVal)
@@ -211,7 +211,7 @@ func (server *Server) GetMutualFundsInfo(w http.ResponseWriter, r *http.Request)
 		if option == "netBought" {
 			allCharts = append(allCharts, BarGraph(mfsInfo.NetstockboughtMap, "Net Stock Bought Of Mutual Fund For One Month", true))
 			allCharts = append(allCharts, BarGraph(mfsInfo.NetstockboughtMap, "Net Stock Bought Of Mutual Fund For One Month (Mutual Fund Excluded)", false))
-			var count = 0
+			count := 0
 			for k, v := range mfsInfo.NetstockboughtMap {
 				excelVal := GetAggregatedMutualFundValues(k, v, count)
 				excelVals = append(excelVals, excelVal)
@@ -228,7 +228,6 @@ func (server *Server) GetMutualFundsInfo(w http.ResponseWriter, r *http.Request)
 }
 
 func SortMap(m map[string]float64, include bool) []kv {
-
 	var ss []kv
 	for k, v := range m {
 		if !include {
@@ -288,7 +287,7 @@ func BarGraph(aggregatedData map[string]float64, title string, includeMutualFund
 
 	topSorted := SortMap(aggregatedData, includeMutualFund)
 
-	var keys = make([]string, 0)
+	keys := make([]string, 0)
 
 	for _, v := range topSorted {
 		keys = append(keys, v.Key)
@@ -322,7 +321,7 @@ func GetAggregatedMutualFundValues(key string, value interface{}, k int) map[str
 }
 
 func GetAggregatedMutualFundHeaders(option string) map[string]string {
-	var headers = make(map[string]string)
+	headers := make(map[string]string)
 
 	if option == "sector" {
 		headers = map[string]string{
@@ -337,7 +336,6 @@ func GetAggregatedMutualFundHeaders(option string) map[string]string {
 	}
 
 	return headers
-
 }
 
 func GetMutualFundHeaders() map[string]string {

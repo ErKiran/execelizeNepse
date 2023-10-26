@@ -2,16 +2,14 @@ package controllers
 
 import (
 	"fmt"
-	"log"
+	"net/http"
+	"os"
+	"strings"
+
 	"nepse-backend/nepse"
 	"nepse-backend/nepse/bizmandu"
 	"nepse-backend/nepse/neweb"
 	"nepse-backend/utils"
-	"net/http"
-	"os"
-	"runtime/pprof"
-	"strings"
-	"time"
 )
 
 const (
@@ -124,16 +122,9 @@ type ManufacturingKeyMetrics struct {
 // @Tags fundamental
 // @Accept  json
 // @Produce  json
-// @Success 200 {object}
+// @Success 200 {string} success
 // @Router /api/v1/fundamental [get]
 func (server *Server) GetFundamentalSectorwise(w http.ResponseWriter, r *http.Request) {
-	f, err := os.Create("Fundamental.prof")
-	if err != nil {
-		log.Fatal(err)
-	}
-	pprof.StartCPUProfile(f)
-	defer pprof.StopCPUProfile()
-	start := time.Now()
 	sector := r.URL.Query().Get("sector")
 	if sector == "" {
 		http.Error(w, "sector is required", http.StatusBadRequest)
@@ -145,8 +136,8 @@ func (server *Server) GetFundamentalSectorwise(w http.ResponseWriter, r *http.Re
 	sectors := utils.MapColumns(querySector)
 
 	biz, err := bizmandu.NewBizmandu()
-
 	if err != nil {
+		fmt.Println("error from bizmandu", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -156,6 +147,7 @@ func (server *Server) GetFundamentalSectorwise(w http.ResponseWriter, r *http.Re
 	nepseBeta, err = neweb.Neweb()
 
 	if err != nil {
+		fmt.Println("error from nepseBeta", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -180,7 +172,6 @@ func (server *Server) GetFundamentalSectorwise(w http.ResponseWriter, r *http.Re
 	}
 
 	bizSectors, err := biz.GetStocks()
-
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -368,7 +359,7 @@ func (server *Server) GetFundamentalSectorwise(w http.ResponseWriter, r *http.Re
 
 		folderName := "fundamental"
 		if _, err := os.Stat(folderName); os.IsNotExist(err) {
-			os.Mkdir(folderName, 0777)
+			os.Mkdir(folderName, 0o777)
 		}
 
 		categories := GetHeaders(sector)
@@ -383,9 +374,6 @@ func (server *Server) GetFundamentalSectorwise(w http.ResponseWriter, r *http.Re
 		}
 		go utils.CreateExcelFile(folderName, sector, categories, excelVals)
 	}
-	duration := time.Since(start)
-	fmt.Println(duration)
-	fmt.Println(duration.Nanoseconds())
 }
 
 func GetHeaders(sector string) map[string]string {
