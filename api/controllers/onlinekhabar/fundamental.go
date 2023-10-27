@@ -3,6 +3,7 @@ package onlinekhabar
 import (
 	"encoding/csv"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"strings"
@@ -15,6 +16,7 @@ import (
 type Fundamental struct {
 	Ticker          string  `json:"ticker"`
 	LTP             float64 `json:"ltp"`
+	FairPrice       float64 `json:"fair_price"`
 	EPS             float64 `json:"eps"`
 	PE              float64 `json:"pe"`
 	ROE             float64 `json:"roe"`
@@ -53,6 +55,7 @@ func (ok okController) GetFundamental(ctx *gin.Context) {
 	}
 
 	var tickers []string
+
 	var fundamental []Fundamental
 	financialOverviewMap := make(map[string]onlinekhabar.FinancialOverview)
 	fundamentalOverviewMap := make(map[string]onlinekhabar.FundamentalOverview)
@@ -120,7 +123,6 @@ func (ok okController) GetFundamental(ctx *gin.Context) {
 		revenue := financialOverviewMap[tick].Response.Revenue
 		netProfit := financialOverviewMap[tick].Response.Netprofit
 		bookValue := financialOverviewMap[tick].Response.Bvps
-		debt := financialOverviewMap[tick].Response.Debttoequity
 		assets := balanceSheetMap[tick].Response.Totalasset
 		liabilities := balanceSheetMap[tick].Response.Totalliabilities
 		equity := balanceSheetMap[tick].Response.Totalequities
@@ -131,7 +133,6 @@ func (ok okController) GetFundamental(ctx *gin.Context) {
 		if len(revenue) > 0 &&
 			len(netProfit) > 0 &&
 			len(bookValue) > 0 &&
-			len(debt) > 0 &&
 			len(assets) > 0 &&
 			len(liabilities) > 0 &&
 			len(equity) > 0 &&
@@ -141,7 +142,6 @@ func (ok okController) GetFundamental(ctx *gin.Context) {
 			latestRevenue := revenue[len(revenue)-1]
 			latestNetProfit := netProfit[len(netProfit)-1]
 			latestBookValue := bookValue[len(bookValue)-1]
-			latestDebt := debt[len(debt)-1]
 			latestAssets := assets[len(assets)-1]
 			latestLiabilities := liabilities[len(liabilities)-1]
 			latestEquity := equity[len(equity)-1]
@@ -152,6 +152,7 @@ func (ok okController) GetFundamental(ctx *gin.Context) {
 			fundamental = append(fundamental, Fundamental{
 				Ticker:          tick,
 				LTP:             ltp,
+				FairPrice:       math.Sqrt(22.5 * overview.Response.EpsDiluted * latestBookValue.Value),
 				EPS:             overview.Response.EpsDiluted,
 				PE:              overview.Response.PeDiluted,
 				ROE:             overview.Response.Roe,
@@ -161,7 +162,6 @@ func (ok okController) GetFundamental(ctx *gin.Context) {
 				Revenue:         latestRevenue.Value,
 				NetProfit:       latestNetProfit.Value,
 				BookValue:       latestBookValue.Value,
-				DebtToEquity:    latestDebt.Value,
 				Assets:          latestAssets.Value,
 				Liabilities:     latestLiabilities.Value,
 				Equities:        latestEquity.Value,
@@ -195,9 +195,9 @@ func (ok *okController) FundamentalToCSV(data []Fundamental, sector string) erro
 
 	// Write the CSV header
 	header := []string{
-		"Ticker", "LTP", "EPS", "PE", "ROE", "PB", "Beta",
+		"Ticker", "LTP", "Fair Price", "EPS", "PE", "ROE", "PB", "Beta",
 		"Dividend Yield", "Revenue", "Net Profit", "Gross Profit",
-		"Net Income", "Net Profit Margin", "Book Value", "Debt to Equity",
+		"Net Income", "Net Profit Margin", "Book Value",
 		"Assets", "Liabilities", "Equities",
 	}
 	err = writer.Write(header)
@@ -211,20 +211,20 @@ func (ok *okController) FundamentalToCSV(data []Fundamental, sector string) erro
 	for _, stock := range data {
 		record := []string{
 			stock.Ticker,
-			fmt.Sprintf("%.4f", stock.LTP),
-			fmt.Sprintf("%.4f", stock.EPS),
-			fmt.Sprintf("%.4f", stock.PE),
-			fmt.Sprintf("%.4f", stock.ROE),
-			fmt.Sprintf("%.4f", stock.PB),
-			fmt.Sprintf("%.4f", stock.Beta),
-			fmt.Sprintf("%.10f", stock.DividendYield),
+			fmt.Sprintf("%.2f", stock.LTP),
+			fmt.Sprintf("%.2f", stock.FairPrice),
+			fmt.Sprintf("%.2f", stock.EPS),
+			fmt.Sprintf("%.2f", stock.PE),
+			fmt.Sprintf("%.2f", stock.ROE),
+			fmt.Sprintf("%.2f", stock.PB),
+			fmt.Sprintf("%.2f", stock.Beta),
+			fmt.Sprintf("%.2f", stock.DividendYield),
 			fmt.Sprintf("%.2f", stock.Revenue),
 			fmt.Sprintf("%.2f", stock.NetProfit),
 			fmt.Sprintf("%.2f", stock.GrossProfit),
 			fmt.Sprintf("%.2f", stock.NetIncome),
-			fmt.Sprintf("%.4f", stock.NetProfitMargin),
-			fmt.Sprintf("%.4f", stock.BookValue),
-			fmt.Sprintf("%.10f", stock.DebtToEquity),
+			fmt.Sprintf("%.2f", stock.NetProfitMargin),
+			fmt.Sprintf("%.2f", stock.BookValue),
 			fmt.Sprintf("%.1f", stock.Assets),
 			fmt.Sprintf("%.1f", stock.Liabilities),
 			fmt.Sprintf("%.1f", stock.Equities),
