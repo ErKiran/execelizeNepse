@@ -35,6 +35,7 @@ func InitRouter() *gin.Engine {
 	nepse := r.Group("api/v1")
 	{
 		nepse.GET("/stocks/list", controller.OKController.GetStocks)
+		nepse.GET("/fundamental/:sector", controller.OKController.GetFundamental)
 	}
 
 	return r

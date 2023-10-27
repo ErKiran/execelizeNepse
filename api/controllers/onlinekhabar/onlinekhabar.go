@@ -6,6 +6,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+var stockMap = map[string]string{
+	"bank": "Banking",
+}
+
 type okController struct {
 	okstock onlinekhabar.OkStock
 }

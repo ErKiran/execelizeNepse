@@ -34,8 +34,8 @@ func (ok *OkStockAPI) GetStocks(ctx *gin.Context) ([]TickerInfo, error) {
 		return nil, err
 	}
 
-	var res StockList
-	if _, err := ok.client.Do(context.Background(), req, res); err != nil {
+	var res *StockList
+	if _, err := ok.client.Do(context.Background(), req, &res); err != nil {
 		fmt.Println("error:", err)
 		return nil, err
 	}

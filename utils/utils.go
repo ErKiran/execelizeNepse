@@ -29,6 +29,10 @@ func NewClient(httpClient *http.Client, apiURL string, auth string) *Client {
 		return nil
 	}
 
+	if httpClient == nil {
+		httpClient = &http.Client{}
+	}
+
 	c := &Client{
 		httpClient: httpClient,
 		UserAgent:  defaultUserAgent,
@@ -43,7 +47,6 @@ func NewClient(httpClient *http.Client, apiURL string, auth string) *Client {
 func (c *Client) Do(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {
 	req = req.WithContext(ctx)
 	if req == nil {
-		fmt.Println("request can't be nil")
 		return nil, errors.New("request can't be nil")
 	}
 	resp, err := c.httpClient.Do(req)
