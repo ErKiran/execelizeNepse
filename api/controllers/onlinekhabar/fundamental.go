@@ -182,7 +182,7 @@ func (ok okController) GetFundamental(ctx *gin.Context) {
 
 func (ok *okController) FundamentalToCSV(data []Fundamental, sector string) error {
 	// Create a CSV file
-	file, err := os.Create(fmt.Sprintf("fundamental-%s", sector))
+	file, err := os.Create(fmt.Sprintf("fundamental-%s.csv", sector))
 	if err != nil {
 		fmt.Println("Error creating CSV file:", err)
 		return err
