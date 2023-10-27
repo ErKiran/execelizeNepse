@@ -7,7 +7,18 @@ import (
 )
 
 var stockMap = map[string]string{
-	"bank": "Banking",
+	"bank":    "Banking",
+	"hydro":   "HydroPower",
+	"finance": "Finance",
+	"micro":   "Microfinance",
+	"life":    "Life Insurance",
+	"trade":   "Trading",
+	"manu":    "Manu.& Pro.",
+	"invest":  "Investment",
+	"non":     "Non Life Insurance",
+	"others":  "Others",
+	"hotel":   "Hotels And Tourism",
+	"dev":     "Development Bank",
 }
 
 type okController struct {
