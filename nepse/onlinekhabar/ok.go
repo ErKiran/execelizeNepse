@@ -15,6 +15,7 @@ const (
 	TickerBalanceSheet        = "ticker-page/financial-balance-sheet"
 	TickerIncomeStatement     = "ticker-page/financial-income-statement"
 	LiveTrading               = "stock_live/live-trading"
+	Technical                 = "ticker-page/ticker-technical-indicator"
 )
 
 type OkStock interface {
@@ -24,6 +25,7 @@ type OkStock interface {
 	GetBalanceSheet(ctx *gin.Context, ticker string) (*BalanceSheet, error)
 	GetIncomeStatement(ctx *gin.Context, ticker string) (*IncomeStatement, error)
 	GetLiveTrading(ctx *gin.Context) (*LiveTradingResponse, error)
+	GetTechnicalIndicator(ctx *gin.Context, ticker string) (*TechnicalIndicator, error)
 }
 
 type OkStockAPI struct {

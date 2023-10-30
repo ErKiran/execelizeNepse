@@ -21,6 +21,14 @@ var stockMap = map[string]string{
 	"dev":     "Development Bank",
 }
 
+const (
+	NEUTRAL       = 0
+	BULLISH       = 1
+	STRONGBULLISH = 2
+	BEARISH       = -1
+	STRONGBEARISH = -2
+)
+
 type okController struct {
 	okstock onlinekhabar.OkStock
 }
@@ -28,6 +36,7 @@ type okController struct {
 type OKController interface {
 	GetStocks(ctx *gin.Context)
 	GetFundamental(ctx *gin.Context)
+	GetTechnical(ctx *gin.Context)
 }
 
 func NewOKController() okController {
