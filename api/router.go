@@ -39,10 +39,5 @@ func InitRouter() *gin.Engine {
 		nepse.GET("/technical", controller.OKController.GetTechnical)
 	}
 
-	cric := r.Group("api/v1/cricket")
-	{
-		cric.GET("/scorecard", controller.CricInfoController.GetScorecard)
-	}
-
 	return r
 }
