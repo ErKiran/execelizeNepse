@@ -37,6 +37,7 @@ func InitRouter() *gin.Engine {
 		nepse.GET("/stocks/list", controller.OKController.GetStocks)
 		nepse.GET("/fundamental/:sector", controller.OKController.GetFundamental)
 		nepse.GET("/technical", controller.OKController.GetTechnical)
+		nepse.GET("/technical-con", controller.OKController.GetTechnicalCon)
 	}
 
 	return r

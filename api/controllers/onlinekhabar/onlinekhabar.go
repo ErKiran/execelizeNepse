@@ -37,6 +37,7 @@ type OKController interface {
 	GetStocks(ctx *gin.Context)
 	GetFundamental(ctx *gin.Context)
 	GetTechnical(ctx *gin.Context)
+	GetTechnicalCon(ctx *gin.Context)
 }
 
 func NewOKController() okController {
