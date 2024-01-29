@@ -13,3 +13,5 @@ mutualFund/
 *.html
 */*.html
 for-youtube/*
+
+.csv
