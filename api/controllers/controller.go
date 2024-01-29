@@ -1,6 +1,8 @@
 package controllers
 
-import "nepse-backend/api/controllers/onlinekhabar"
+import (
+	"nepse-backend/api/controllers/onlinekhabar"
+)
 
 type controller struct {
 	OKController onlinekhabar.OKController

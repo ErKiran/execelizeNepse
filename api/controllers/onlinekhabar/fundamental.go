@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"nepse-backend/nepse/onlinekhabar"
 
@@ -45,7 +46,6 @@ type Fundamental struct {
 // @Router /leads/info/accounts [get]
 func (ok okController) GetFundamental(ctx *gin.Context) {
 	sector := ctx.Param("sector")
-
 	sector = stockMap[sector]
 
 	stocks, err := ok.okstock.GetStocks(ctx)
@@ -55,6 +55,8 @@ func (ok okController) GetFundamental(ctx *gin.Context) {
 	}
 
 	var tickers []string
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 
 	var fundamental []Fundamental
 	financialOverviewMap := make(map[string]onlinekhabar.FinancialOverview)
@@ -63,12 +65,8 @@ func (ok okController) GetFundamental(ctx *gin.Context) {
 	incomeStatementMap := make(map[string]onlinekhabar.IncomeStatement)
 
 	for _, stck := range stocks {
-		if stck.Sector == sector {
-			if !strings.Contains(stck.TickerName, "Promoter") {
-				if !strings.Contains(stck.TickerName, "Preferred") {
-					tickers = append(tickers, stck.Ticker)
-				}
-			}
+		if stck.Sector == sector && !strings.Contains(stck.TickerName, "Promoter") && !strings.Contains(stck.TickerName, "Preferred") {
+			tickers = append(tickers, stck.Ticker)
 		}
 	}
 
@@ -79,98 +77,121 @@ func (ok okController) GetFundamental(ctx *gin.Context) {
 	}
 
 	for _, tick := range tickers {
-		fundamental, err := ok.okstock.GetFundamentalQuickView(ctx, tick)
-		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, err)
-			return
-		}
+		wg.Add(1)
+		go func(tick string) {
+			defer wg.Done()
+			fundamental, err := ok.okstock.GetFundamentalQuickView(ctx, tick)
+			if err != nil {
+				mu.Lock()
+				ctx.JSON(http.StatusInternalServerError, err)
+				mu.Unlock()
+				return
+			}
 
-		fundamentalOverviewMap[tick] = *fundamental
+			financial, err := ok.okstock.GetFinancialOverview(ctx, tick)
+			if err != nil {
+				mu.Lock()
+				ctx.JSON(http.StatusInternalServerError, err)
+				mu.Unlock()
+				return
+			}
 
-		financial, err := ok.okstock.GetFinancialOverview(ctx, tick)
-		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, err)
-			return
-		}
+			balance, err := ok.okstock.GetBalanceSheet(ctx, tick)
+			if err != nil {
+				mu.Lock()
+				ctx.JSON(http.StatusInternalServerError, err)
+				mu.Unlock()
+				return
+			}
 
-		financialOverviewMap[tick] = *financial
-
-		balance, err := ok.okstock.GetBalanceSheet(ctx, tick)
-		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, err)
-			return
-		}
-
-		balanceSheetMap[tick] = *balance
-
-		income, err := ok.okstock.GetIncomeStatement(ctx, tick)
-		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, err)
-			return
-		}
-
-		incomeStatementMap[tick] = *income
+			income, err := ok.okstock.GetIncomeStatement(ctx, tick)
+			if err != nil {
+				mu.Lock()
+				ctx.JSON(http.StatusInternalServerError, err)
+				mu.Unlock()
+				return
+			}
+			mu.Lock()
+			financialOverviewMap[tick] = *financial
+			balanceSheetMap[tick] = *balance
+			fundamentalOverviewMap[tick] = *fundamental
+			incomeStatementMap[tick] = *income
+			mu.Unlock()
+		}(tick)
 	}
+
+	wg.Wait()
 
 	for _, tick := range tickers {
-		var ltp float64
+		wg.Add(1)
+		go func(tick string) {
+			defer wg.Done()
+			var ltp float64
 
-		for _, lt := range liveTrading.Response {
-			if lt.Ticker == tick {
-				ltp = lt.Ltp
+			for _, lt := range liveTrading.Response {
+				if lt.Ticker == tick {
+					ltp = lt.Ltp
+					break
+				}
 			}
-		}
-		revenue := financialOverviewMap[tick].Response.Revenue
-		netProfit := financialOverviewMap[tick].Response.Netprofit
-		bookValue := financialOverviewMap[tick].Response.Bvps
-		assets := balanceSheetMap[tick].Response.Totalasset
-		liabilities := balanceSheetMap[tick].Response.Totalliabilities
-		equity := balanceSheetMap[tick].Response.Totalequities
-		grossProfit := incomeStatementMap[tick].Response.Grossprofit
-		netIncome := incomeStatementMap[tick].Response.Netincome
-		netProfitMargin := incomeStatementMap[tick].Response.Netprofitmargin
-		overview := fundamentalOverviewMap[tick]
-		if len(revenue) > 0 &&
-			len(netProfit) > 0 &&
-			len(bookValue) > 0 &&
-			len(assets) > 0 &&
-			len(liabilities) > 0 &&
-			len(equity) > 0 &&
-			len(grossProfit) > 0 &&
-			len(netIncome) > 0 &&
-			len(netProfitMargin) > 0 {
-			latestRevenue := revenue[len(revenue)-1]
-			latestNetProfit := netProfit[len(netProfit)-1]
-			latestBookValue := bookValue[len(bookValue)-1]
-			latestAssets := assets[len(assets)-1]
-			latestLiabilities := liabilities[len(liabilities)-1]
-			latestEquity := equity[len(equity)-1]
-			latestGrossProfit := grossProfit[len(grossProfit)-1]
-			latestNetIncome := netIncome[len(netIncome)-1]
-			latestNetProfitMargin := netProfitMargin[len(netProfitMargin)-1]
 
-			fundamental = append(fundamental, Fundamental{
-				Ticker:          tick,
-				LTP:             ltp,
-				FairPrice:       math.Sqrt(22.5 * overview.Response.EpsDiluted * latestBookValue.Value),
-				EPS:             overview.Response.EpsDiluted,
-				PE:              overview.Response.PeDiluted,
-				ROE:             overview.Response.Roe,
-				PB:              overview.Response.PbRatio,
-				Beta:            overview.Response.Beta,
-				DividendYield:   overview.Response.DivYield,
-				Revenue:         latestRevenue.Value,
-				NetProfit:       latestNetProfit.Value,
-				BookValue:       latestBookValue.Value,
-				Assets:          latestAssets.Value,
-				Liabilities:     latestLiabilities.Value,
-				Equities:        latestEquity.Value,
-				GrossProfit:     latestGrossProfit.Value,
-				NetIncome:       latestNetIncome.Value,
-				NetProfitMargin: latestNetProfitMargin.Value,
-			})
-		}
+			mu.Lock()
+			revenue := financialOverviewMap[tick].Response.Revenue
+			netProfit := financialOverviewMap[tick].Response.Netprofit
+			bookValue := financialOverviewMap[tick].Response.Bvps
+			assets := balanceSheetMap[tick].Response.Totalasset
+			liabilities := balanceSheetMap[tick].Response.Totalliabilities
+			equity := balanceSheetMap[tick].Response.Totalequities
+			grossProfit := incomeStatementMap[tick].Response.Grossprofit
+			netIncome := incomeStatementMap[tick].Response.Netincome
+			netProfitMargin := incomeStatementMap[tick].Response.Netprofitmargin
+			overview := fundamentalOverviewMap[tick]
+
+			if len(revenue) > 0 &&
+				len(netProfit) > 0 &&
+				len(bookValue) > 0 &&
+				len(assets) > 0 &&
+				len(liabilities) > 0 &&
+				len(equity) > 0 &&
+				len(grossProfit) > 0 &&
+				len(netIncome) > 0 &&
+				len(netProfitMargin) > 0 {
+				latestRevenue := revenue[len(revenue)-1]
+				latestNetProfit := netProfit[len(netProfit)-1]
+				latestBookValue := bookValue[len(bookValue)-1]
+				latestAssets := assets[len(assets)-1]
+				latestLiabilities := liabilities[len(liabilities)-1]
+				latestEquity := equity[len(equity)-1]
+				latestGrossProfit := grossProfit[len(grossProfit)-1]
+				latestNetIncome := netIncome[len(netIncome)-1]
+				latestNetProfitMargin := netProfitMargin[len(netProfitMargin)-1]
+
+				fundamental = append(fundamental, Fundamental{
+					Ticker:          tick,
+					LTP:             ltp,
+					FairPrice:       math.Sqrt(22.5 * overview.Response.EpsDiluted * latestBookValue.Value),
+					EPS:             overview.Response.EpsDiluted,
+					PE:              overview.Response.PeDiluted,
+					ROE:             overview.Response.Roe,
+					PB:              overview.Response.PbRatio,
+					Beta:            overview.Response.Beta,
+					DividendYield:   overview.Response.DivYield,
+					Revenue:         latestRevenue.Value,
+					NetProfit:       latestNetProfit.Value,
+					BookValue:       latestBookValue.Value,
+					Assets:          latestAssets.Value,
+					Liabilities:     latestLiabilities.Value,
+					Equities:        latestEquity.Value,
+					GrossProfit:     latestGrossProfit.Value,
+					NetIncome:       latestNetIncome.Value,
+					NetProfitMargin: latestNetProfitMargin.Value,
+				})
+			}
+			mu.Unlock()
+		}(tick)
 	}
+
+	wg.Wait()
 
 	if err := ok.FundamentalToCSV(fundamental, sector); err != nil {
 		ctx.JSON(http.StatusInternalServerError, err)

@@ -32,5 +32,8 @@ FROM scratch
 
 COPY --from=builder /dist/main /
 
+# Copy .env file to the working directory
+COPY .env .
+
 # Command to run
 ENTRYPOINT ["/main"]
