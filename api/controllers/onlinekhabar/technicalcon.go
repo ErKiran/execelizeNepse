@@ -1,10 +1,13 @@
 package onlinekhabar
 
 import (
+	"encoding/csv"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"nepse-backend/nepse/onlinekhabar"
 
@@ -75,6 +78,11 @@ func (ok okController) GetTechnicalCon(ctx *gin.Context) {
 
 	wg.Wait()
 
+	if err := ok.TechnicalToCSV(technicals); err != nil {
+		fmt.Println("unable to convert the technical data to csv", err)
+		ctx.JSON(http.StatusInternalServerError, err)
+	}
+
 	ctx.JSON(http.StatusOK, technicals)
 }
 
@@ -105,4 +113,53 @@ func calculateTechnicalValues(ok okController, res *onlinekhabar.TechnicalIndica
 		MA:   ok.CalculateMA(currentPrice, response.Ma20, response.Ma50, response.Ma200),
 	}
 	return calcu
+}
+
+func (ok *okController) TechnicalToCSV(data []Technical) error {
+	// Create a CSV file
+	file, err := os.Create(fmt.Sprintf("technical-%s.csv", time.Now().Format("2006-01-02")))
+	if err != nil {
+		fmt.Println("Error creating CSV file:", err)
+		return err
+	}
+	defer file.Close()
+
+	// Create a CSV writer
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	// Write the CSV header
+	header := []string{
+		"Ticker", "LTP", "MACD", "RSI", "MFI", "CCI", "MA20", "MA50",
+		"MA200", "ADX", "Total",
+	}
+	err = writer.Write(header)
+	if err != nil {
+		fmt.Println("Error writing CSV header:", err)
+		return err
+	}
+
+	// Write the stock data to the CSV file
+
+	for _, stock := range data {
+		record := []string{
+			stock.Ticker,
+			fmt.Sprintf("%.2f", stock.LTP),
+			fmt.Sprintf("%.2f", stock.Macd),
+			fmt.Sprintf("%.2f", stock.Rsi),
+			fmt.Sprintf("%.2f", stock.Mfi),
+			fmt.Sprintf("%.2f", stock.Cci),
+			fmt.Sprintf("%.2f", stock.Ma20),
+			fmt.Sprintf("%.2f", stock.Ma50),
+			fmt.Sprintf("%.2f", stock.Ma200),
+			fmt.Sprintf("%.2f", stock.Adx),
+			fmt.Sprintf("%.2f", stock.Total),
+		}
+		err = writer.Write(record)
+		if err != nil {
+			fmt.Println("Error writing CSV record:", err)
+			return err
+		}
+	}
+	return nil
 }
