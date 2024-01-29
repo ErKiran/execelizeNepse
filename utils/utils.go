@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,13 +25,16 @@ type Client struct {
 
 func NewClient(httpClient *http.Client, apiURL string, auth string) *Client {
 	baseURL, err := url.Parse(apiURL)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
 	if err != nil {
 		fmt.Println("unable to parse URL", err)
 		return nil
 	}
 
 	if httpClient == nil {
-		httpClient = &http.Client{}
+		httpClient = &http.Client{Transport: tr}
 	}
 
 	c := &Client{
